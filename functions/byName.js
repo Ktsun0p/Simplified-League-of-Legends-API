@@ -3,7 +3,6 @@ import { getVersion } from "./getVersion.js";
 import { getLiveGame } from "./LiveGame.js";
 import { getMasteries } from "./masteries.js";
 import { champByKey } from "./champByKey.js";
-import fs from "fs";
 import regions from "../data/regions.json" assert { type: "json"};
 import emblems from "../data/emblems.json" assert { type: "json"};
 import {lolApi} from "../index.js";
@@ -21,17 +20,22 @@ let championJson = {};
  */
 export async function byName(name,region, lang = "en_US", apiInstance){
 
-    region = region.toUpperCase();
-    name = name.toLowerCase();
     const apiKey = apiInstance.apiKey;
-    if(!regions[region]) throw new Error(`Region "${region}" does not exist.`)
+
+    if(!region || !name || !apiKey) return handleAPIError(602);
+
+   const realRegion = findRegionKey(region);
+    
+   if(!regions[realRegion]) return handleAPIError(601);
+    
+    region = realRegion;
+    name = name.toLowerCase(); 
 
      const lastVer = await getVersion();
 
      const region_routing_value = regions[region][1]
      const region_name = regions[region][0]
 
-     try {
           let summonerURL = await fetch(`https://${region}.api.riotgames.com/lol/summoner/v4/summoners/by-name/${name}?api_key=${apiKey}`);
      summonerURL = await summonerURL.json();
      if(summonerURL.status) return handleAPIError(summonerURL.status.status_code);
@@ -54,7 +58,7 @@ export async function byName(name,region, lang = "en_US", apiInstance){
 
      let iconURL = `https://ddragon.leagueoflegends.com/cdn/${lastVer}/img/profileicon/${summonerURL.profileIconId}.png?width=256&height=256`;
 
-     const topmasteries = await  getMasteries(championByIdCache,championJson,summonerURL.id,region, lang, apiKey);
+     const topmasteries = await getMasteries(championByIdCache,championJson,summonerURL.id,region, lang, apiKey);
      let bground; 
 
      if(topmasteries[0]) bground =`http://ddragon.leagueoflegends.com/cdn/img/champion/splash/${topmasteries[0].id}_0.jpg`; 
@@ -149,20 +153,13 @@ export async function byName(name,region, lang = "en_US", apiInstance){
        id: summonerURL.id,
        accountID: summonerURL.accountId,
        puuid: summonerURL.puuid,
-       masteries:topmasteries,
        rankedInfo:ranked,
-       lastgame:lastgame,
        liveGame:liveGame,
+       lastgame:lastgame,
+       masteries:topmasteries
    }
-   const summonerJSON = JSON.stringify(summoner, null, 2); // El segundo argumento (null, 2) hace que la salida JSON sea más legible
-
-   // Escribe el objeto JSON en un archivo llamado "summoner.json"
-   fs.writeFileSync('summoner.json', summonerJSON);
 
    return summoner;
-     } catch (error) {
-         throw new Error(error);
-     }
      
 }
 
@@ -207,9 +204,33 @@ function handleAPIError(statusCode) {
          case 504:
              errorMessage = "Gateway timeout";
              break;
+         case 601:
+             errorMessage = "Region not found";
+             break;
+         case 602:
+             errorMessage = "Missing parameters";
+             break;
          default:
              errorMessage = `Unknown error with status code: ${statusCode}`;
      }
-     
-     throw new Error(errorMessage);
+     const errorData = {
+        errorCode: statusCode,
+        errorMessage: errorMessage,
+      };
+      return errorData;
  }
+
+
+ function findRegionKey(query) {
+    if (regions.hasOwnProperty(query)) {
+        return query; 
+    }
+    
+    for (const key in regions) {
+        if (regions[key].includes(query)) {
+            return key; 
+        }
+    }
+    
+    return null; 
+}
