@@ -36,13 +36,12 @@ const api = new lolApi(api_key):
 ## Example 
 ```javascript
 import { lolApi } from "./lolApi/index.js";
+const api = new lolApi("YOUR_TOKEN_HERE");
 
 async function getSummoner(){
-    const api = new lolApi("YOUR_TOKEN_HERE");
-
     const summoner = await api.getSummonerByName("Ktsun0","LA2");
    return summoner;
-}
+}v
 
 const summonerInfo = await getSummoner();
 
